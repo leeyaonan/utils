@@ -31,38 +31,41 @@ public class HttpClientUtils {
     /**
      * 处理get请求
      * @param url 请求路径
-     * @param params 参数
+     * @param params 参数（Map格式）
      * @return 请求结果
      */
     public static String doGet(String url, Map<String, String> params) {
 
         // 返回结果
-        String result = "";
+        String result = null;
         // 创建HttpClient对象
         HttpClient httpClient = HttpClientBuilder.create().build();
         HttpGet httpGet = null;
         try {
-            // 拼接参数,可以用URIBuilder,也可以直接拼接在？传值，拼在url后面，如下--httpGet = new
+            // 拼接参数,可以用URIBuilder,也可以直接拼接在?传值，拼在url后面，如下--httpGet = new
             // HttpGet(uri+"?id=123");
             URIBuilder uriBuilder = new URIBuilder(url);
             if (null != params && !params.isEmpty()) {
                 for (Map.Entry<String, String> entry : params.entrySet()) {
-                    // setParameter会覆盖同名参数的值，addParameter则不会)
+                    // 注意：setParameter会覆盖同名参数的值，addParameter则不会
                     uriBuilder.addParameter(entry.getKey(), entry.getValue());
                 }
             }
             URI uri = uriBuilder.build();
             // 创建get请求
             httpGet = new HttpGet(uri);
+            log.info("发送Get请求：" + uri);
             HttpResponse response = httpClient.execute(httpGet);
+            // 当状态码为200的时候，返回结果集
+            result = EntityUtils.toString(response.getEntity());
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 // 结果返回
-                result = EntityUtils.toString(response.getEntity());
-                log.info("请求成功！，返回数据：" + result);
+                log.info("请求成功,url={},返回数据={}", uri, result);
             } else {
-                log.info("请求失败！");
+                log.info("请求失败,url={},返回数据={}", uri, result);
             }
         } catch (Exception e) {
+            log.error("请求异常,url={},msg={}", url, e.getMessage());
             e.printStackTrace();
         } finally {
             // 释放连接
@@ -76,15 +79,17 @@ public class HttpClientUtils {
     /**
      * 处理post请求（请求体为表单）
      * @param url 请求路径
-     * @param params 请求参数
+     * @param params 请求参数(Map)
      * @return 请求结果
      */
     public static String doPost(String url, Map<String, String> params) {
-        String result = "";
+        String result = null;
         // 创建httpclient对象
         HttpClient httpClient = HttpClientBuilder.create().build();
-        HttpPost httpPost = new HttpPost(url);
-        try { // 参数键值对
+        HttpPost httpPost = null;
+        try {
+            httpPost = new HttpPost(url);
+            // 参数键值对
             if (null != params && !params.isEmpty()) {
                 List<NameValuePair> pairs = new ArrayList<NameValuePair>();
                 NameValuePair pair = null;
@@ -97,15 +102,14 @@ public class HttpClientUtils {
                 httpPost.setEntity(entity);
             }
             HttpResponse response = httpClient.execute(httpPost);
+            result = EntityUtils.toString(response.getEntity(), "utf-8");
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                result = EntityUtils.toString(response.getEntity(), "utf-8");
-                log.info("返回数据：>>>" + result);
+                log.info("请求成功,url={},返回数据={}", url, result);
             } else {
-                log.info("请求失败！，url:" + url);
+                log.info("请求失败,url={},返回数据={}", url, result);
             }
         } catch (Exception e) {
-            log.error("请求失败");
-            log.error(ExceptionUtils.getStackTrace(e));
+            log.error("请求异常,url={},msg={}", url, e.getMessage());
             e.printStackTrace();
         } finally {
             if (null != httpPost) {
@@ -123,39 +127,28 @@ public class HttpClientUtils {
      * @return
      */
     public static String sendJsonStr(String url, String params) {
-        String result = "";
+        String result = null;
+        log.info("发送Json请求体,url={},body={}", url, params);
 
         HttpClient httpClient = HttpClientBuilder.create().build();
         HttpPost httpPost = new HttpPost(url);
         try {
             httpPost.addHeader("Content-type", "application/json; charset=utf-8");
             httpPost.setHeader("Accept", "application/json");
-            if (StringUtils.isNotBlank(params)) {
+            if (!StringUtils.isEmpty(params)) {
                 httpPost.setEntity(new StringEntity(params, StandardCharsets.UTF_8));
             }
             HttpResponse response = httpClient.execute(httpPost);
+            result = EntityUtils.toString(response.getEntity());
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                result = EntityUtils.toString(response.getEntity());
-                log.info("返回数据：" + result);
+                log.info("请求成功,url={},返回数据={}", url, result);
             } else {
-                log.info("请求失败");
+                log.info("请求失败,url={},返回数据={}", url, result);
             }
         } catch (IOException e) {
-            log.error("请求异常");
-            log.error(ExceptionUtils.getStackTrace(e));
+            log.error("请求异常,url={},msg={}", url, e.getMessage());
+            e.printStackTrace();
         }
         return result;
     }
-
-    public static void main(String[] args) {
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("id", UUID.randomUUID().toString());
-        String get = doGet("http://localhost:8080/mundo/test", map);
-        System.out.println("get请求调用成功，返回数据是：" + get);
-        String post = doPost("http://localhost:8080/mundo/test", map);
-        System.out.println("post调用成功，返回数据是：" + post);
-        String json = sendJsonStr("http://localhost:8080/mundo/test", "{\"name\":\"David\"}");
-        System.out.println("json发送成功，返回数据是：" + json);
-    }
-
 }
